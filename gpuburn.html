@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU Cloud Intelligence Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons for UI Polish -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+
+    <!-- 
+      Application Architecture:
+      - State Management: Centralized 'appState' object synced with localStorage.
+      - Views: Dashboard (Calculator), Explorer (List/Grid), Intelligence (Scatter Plot), Comparator (Side-by-side).
+      - Persistence: User selections and pins are saved.
+    -->
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        bg: {
+                            DEFAULT: '#050507', // Ultra dark
+                            card: '#0E0F19',    // Card bg
+                            panel: '#161828',   // Secondary panels
+                        },
+                        brand: {
+                            cyan: '#00F0FF',
+                            violet: '#7C3AED',
+                            pink: '#EC4899',
+                            success: '#10B981',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px #00F0FF20' },
+                            '100%': { boxShadow: '0 0 20px #00F0FF60, 0 0 10px #00F0FF' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050507;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass {
+            background: rgba(14, 15, 25, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-panel {
+            background: rgba(22, 24, 40, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .glass-active {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: rgba(0, 240, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00F0FF;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 2px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #050507;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .tab-btn.active {
+            color: #00F0FF;
+            border-bottom-color: #00F0FF;
+        }
+
+        /* Chart Containers */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="h-16 glass border-b border-white/5 sticky top-0 z-40">
+        <div class="container mx-auto px-4 h-full flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded bg-gradient-to-br from-brand-cyan to-brand-violet flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+                    <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
+                </div>
+                <span class="text-lg font-display font-bold tracking-tight text-white">GPU<span
+                        class="text-brand-cyan">Intel</span>Suite</span>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="hidden md:flex gap-8">
+                <button onclick="app.switchView('dashboard')" id="nav-dashboard"
+                    class="tab-btn active text-sm font-medium text-slate-400 hover:text-white py-5 border-b-2 border-transparent transition-all">Dashboard</button>
+                <button onclick="app.switchView('explorer')" id="nav-explorer"
+                    class="tab-btn text-sm font-medium text-slate-400 hover:text-white py-5 border-b-2 border-transparent transition-all">Market
+                    Explorer</button>
+                <button onclick="app.switchView('intelligence')" id="nav-intelligence"
+                    class="tab-btn text-sm font-medium text-slate-400 hover:text-white py-5 border-b-2 border-transparent transition-all">Value
+                    Map</button>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-xs font-mono text-brand-cyan">
+                    <div class="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></div>
+                    LIVE DATA
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow container mx-auto px-4 py-8 relative">
+
+        <!-- VIEW 1: DASHBOARD (Calculator) -->
+        <div id="view-dashboard" class="space-y-8 transition-opacity duration-300">
+            <div class="text-center max-w-2xl mx-auto mb-12">
+                <h1 class="text-4xl font-display font-bold text-white mb-4">Burn Rate Simulator</h1>
+                <p class="text-slate-400">Model complex infrastructure scenarios. Adjust variables below to forecast
+                    your 30-day capital expenditure.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Controls -->
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="glass p-6 rounded-xl">
+                        <h3 class="text-white font-display font-bold mb-6 flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-brand-cyan"></i> Configuration
+                        </h3>
+
+                        <div class="space-y-5">
+                            <div>
+                                <label
+                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">GPU
+                                    Model</label>
+                                <select id="calc-gpu"
+                                    class="w-full bg-bg-panel border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:border-brand-cyan focus:outline-none transition-colors"></select>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Provider</label>
+                                <select id="calc-provider"
+                                    class="w-full bg-bg-panel border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:border-brand-cyan focus:outline-none transition-colors"></select>
+                            </div>
+
+                            <div class="pt-4 border-t border-white/5">
+                                <div class="flex justify-between mb-2">
+                                    <label
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quantity</label>
+                                    <span id="lbl-qty" class="text-xs font-mono text-brand-cyan">1 Node</span>
+                                </div>
+                                <input type="range" id="calc-qty" min="1" max="128" value="1" class="mb-4">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Usage /
+                                        Day</label>
+                                    <span id="lbl-hours" class="text-xs font-mono text-brand-cyan">8 Hours</span>
+                                </div>
+                                <input type="range" id="calc-hours" min="1" max="24" value="8">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visuals -->
+                <div class="lg:col-span-8 space-y-6">
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="glass-panel p-4 rounded-xl border-l-2 border-brand-cyan">
+                            <div class="text-xs text-slate-400 mb-1">Hourly Rate</div>
+                            <div id="kpi-rate" class="text-xl font-bold text-white font-mono">$0.00</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border-l-2 border-brand-violet">
+                            <div class="text-xs text-slate-400 mb-1">Daily Burn</div>
+                            <div id="kpi-daily" class="text-xl font-bold text-white font-mono">$0.00</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border-l-2 border-brand-pink">
+                            <div class="text-xs text-slate-400 mb-1">Monthly Burn</div>
+                            <div id="kpi-monthly" class="text-xl font-bold text-white font-mono">$0.00</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border-l-2 border-brand-success bg-brand-success/5">
+                            <div class="text-xs text-brand-success mb-1">VRAM Capacity</div>
+                            <div id="kpi-vram" class="text-xl font-bold text-white font-mono">0 GB</div>
+                        </div>
+                    </div>
+
+                    <style>
+                        /* Component Styles - Scoped to #spheron-savings-container to avoid conflicts */
+                        #spheron-savings-container {
+                            font-family: 'Inter', sans-serif;
+                            background-color: #0a0a0a;
+                            color: #ffffff;
+                            padding: 40px;
+                            border-radius: 16px;
+                            border: 1px solid #333;
+                            max-width: 1000px;
+                            margin: 40px auto;
+                            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+                        }
+
+                        #spheron-savings-container h2 {
+                            text-align: center;
+                            font-size: 2.5rem;
+                            margin-bottom: 10px;
+                            background: linear-gradient(90deg, #fff, #ccc);
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                        }
+
+                        #spheron-savings-container p.subtitle {
+                            text-align: center;
+                            color: #888;
+                            margin-bottom: 40px;
+                            font-size: 1.1rem;
+                        }
+
+                        .savings-grid {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 30px;
+                        }
+
+                        @media (max-width: 768px) {
+                            .savings-grid {
+                                grid-template-columns: 1fr;
+                            }
+                        }
+
+                        /* Table Styles */
+                        .pricing-table-wrapper {
+                            background: #111;
+                            border-radius: 12px;
+                            padding: 20px;
+                            border: 1px solid #222;
+                        }
+
+                        .pricing-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                        }
+
+                        .pricing-table th {
+                            text-align: left;
+                            padding: 12px;
+                            color: #666;
+                            font-size: 0.9rem;
+                            border-bottom: 1px solid #333;
+                        }
+
+                        .pricing-table td {
+                            padding: 16px 12px;
+                            border-bottom: 1px solid #222;
+                            font-size: 1rem;
+                        }
+
+                        .pricing-table tr:last-child td {
+                            border-bottom: none;
+                        }
+
+                        .provider-name {
+                            font-weight: 600;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                        }
+
+                        .spheron-row {
+                            background: rgba(0, 122, 255, 0.1);
+                            border-radius: 8px;
+                        }
+
+                        .spheron-row td {
+                            color: #3b82f6;
+                            /* Spheron Blue */
+                            font-weight: 700;
+                            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+                        }
+
+                        /* Savings Card Styles */
+                        .savings-card {
+                            background: linear-gradient(145deg, #1a1a1a, #111);
+                            border-radius: 12px;
+                            padding: 30px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            text-align: center;
+                            border: 1px solid #333;
+                            position: relative;
+                            overflow: hidden;
+                        }
+
+                        .savings-card::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            height: 4px;
+                            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+                        }
+
+                        .savings-amount {
+                            font-size: 4rem;
+                            font-weight: 800;
+                            color: #3b82f6;
+                            margin: 10px 0;
+                            line-height: 1;
+                        }
+
+                        .savings-label {
+                            font-size: 1.2rem;
+                            color: #ccc;
+                            margin-bottom: 20px;
+                        }
+
+                        .savings-note {
+                            font-size: 0.9rem;
+                            color: #666;
+                            max-width: 80%;
+                        }
+
+                        .cta-button {
+                            display: inline-block;
+                            margin-top: 20px;
+                            padding: 12px 24px;
+                            background: #3b82f6;
+                            color: white;
+                            text-decoration: none;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            transition: background 0.2s;
+                        }
+
+                        .cta-button:hover {
+                            background: #2563eb;
+                        }
+                    </style>
+
+                    <div id="spheron-savings-container">
+                        <h2>Compute Cost Comparison</h2>
+                        <p class="subtitle">See how much you save with Spheron's on-demand GPUs compared to major cloud
+                            providers.</p>
+
+                        <div class="savings-grid">
+                            <!-- Pricing Table -->
+                            <div class="pricing-table-wrapper">
+                                <table class="pricing-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Provider</th>
+                                            <th>H100 (Per Hour)</th>
+                                            <th>A100 (Per Hour)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="spheron-row">
+                                            <td class="provider-name">Spheron AI</td>
+                                            <td>$1.99</td>
+                                            <td>$1.50</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="provider-name">Lambda Labs</td>
+                                            <td>$2.49</td>
+                                            <td>$2.20</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="provider-name">AWS (P5/P4)</td>
+                                            <td>~$7.57</td>
+                                            <td>~$4.10</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="provider-name">GCP (A3/A2)</td>
+                                            <td>~$11.06</td>
+                                            <td>~$4.22</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Savings Highlight -->
+                            <div class="savings-card">
+                                <div class="savings-label">Up to</div>
+                                <div class="savings-amount">82%</div>
+                                <div class="savings-label">Cheaper than Hyperscalers</div>
+                                <p class="savings-note">Based on standard on-demand pricing for NVIDIA H100 instances.
+                                </p>
+                                <a href="https://spheron.ai" class="cta-button">Start Saving Now</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Chart -->
+                    <div class="glass p-6 rounded-xl h-[400px] flex flex-col">
+                        <h3 class="text-sm font-bold text-slate-400 mb-4">30-Day Cost Projection</h3>
+                        <div class="flex-grow chart-wrapper">
+                            <canvas id="chart-projection"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: EXPLORER (List/Grid) -->
+        <div id="view-explorer" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-display font-bold text-white">Market Explorer</h2>
+                    <p class="text-sm text-slate-400">Filter and pin GPUs to compare.</p>
+                </div>
+
+                <!-- Advanced Filter Bar -->
+                <div class="glass p-2 rounded-lg flex gap-4 items-center">
+                    <div class="px-4 border-r border-white/10">
+                        <label class="text-[10px] uppercase text-slate-500 font-bold block mb-1">Min VRAM</label>
+                        <select id="filter-vram" class="bg-transparent text-sm text-white focus:outline-none">
+                            <option value="0">Any</option>
+                            <option value="24">24 GB+</option>
+                            <option value="48">48 GB+</option>
+                            <option value="80">80 GB+</option>
+                        </select>
+                    </div>
+                    <div class="px-4">
+                        <label class="text-[10px] uppercase text-slate-500 font-bold block mb-1">Max Budget
+                            ($/hr)</label>
+                        <input type="number" id="filter-budget" placeholder="No Limit"
+                            class="bg-transparent text-sm text-white w-20 focus:outline-none placeholder-slate-600">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid -->
+            <div id="gpu-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <!-- Cards injected via JS -->
+            </div>
+        </div>
+
+        <!-- VIEW 3: INTELLIGENCE (Scatter Plot) -->
+        <div id="view-intelligence" class="hidden h-[80vh]">
+            <div class="glass p-6 rounded-xl h-full flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-display font-bold text-white">Value Map Analysis</h2>
+                        <p class="text-sm text-slate-400">Identifying price-to-performance outliers. <span
+                                class="text-brand-cyan">Top Left</span> = Best Value.</p>
+                    </div>
+                    <div class="flex gap-2 text-xs">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-cyan"></span>
+                            High End</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-violet"></span>
+                            Mid Range</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-pink"></span>
+                            Budget</span>
+                    </div>
+                </div>
+                <div class="flex-grow chart-wrapper">
+                    <canvas id="chart-scatter"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Comparison Drawer (Fixed Bottom) -->
+    <div id="drawer-compare"
+        class="fixed bottom-0 left-0 w-full bg-[#0E0F19] border-t border-brand-cyan/30 transform translate-y-full transition-transform duration-300 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div
+                        class="w-10 h-10 rounded-full bg-brand-cyan/10 flex items-center justify-center text-brand-cyan">
+                        <i data-lucide="scale" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-white font-bold">Comparison Basket</h4>
+                        <p class="text-xs text-slate-400"><span id="basket-count">0</span> items selected</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="app.clearBasket()"
+                        class="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition-colors">Clear</button>
+                    <button onclick="app.toggleCompareModal()"
+                        class="px-6 py-2 bg-brand-cyan hover:bg-cyan-400 text-black font-bold rounded-lg transition-colors flex items-center gap-2">
+                        Compare Now <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Selected Items Horizontal List -->
+            <div id="basket-items" class="flex gap-4 mt-4 overflow-x-auto pb-2">
+                <!-- Items injected JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Modal Overlay -->
+    <div id="modal-compare"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div
+            class="bg-bg-card border border-white/10 w-full max-w-5xl max-h-[90vh] rounded-2xl flex flex-col shadow-2xl">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 class="text-xl font-display font-bold text-white">Direct Comparison</h3>
+                <button onclick="app.toggleCompareModal()" class="text-slate-400 hover:text-white"><i data-lucide="x"
+                        class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-6 flex-grow overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+                    <div class="chart-wrapper h-64 md:h-full min-h-[300px]">
+                        <canvas id="chart-compare-price"></canvas>
+                    </div>
+                    <div class="chart-wrapper h-64 md:h-full min-h-[300px]">
+                        <canvas id="chart-compare-vram"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA LAYER ---
+        const gpuData = [
+            // High-End
+            { id: 101, model: 'Nvidia H100', provider: 'Spheron AI', price: 1.99, vram: 80, type: 'High-End' },
+            { id: 102, model: 'Nvidia A100', provider: 'Spheron AI', price: 1.50, vram: 80, type: 'High-End' },
+            { id: 1, model: 'Nvidia H100 NVL', provider: 'Salad', price: 0.99, vram: 94, type: 'High-End' },
+            { id: 2, model: 'Nvidia H100 SXM', provider: 'Lambda', price: 2.49, vram: 80, type: 'High-End' },
+            { id: 3, model: 'Nvidia H100', provider: 'AWS', price: 4.25, vram: 80, type: 'High-End' },
+            { id: 4, model: 'Nvidia GH200', provider: 'Lambda', price: 1.49, vram: 96, type: 'High-End' },
+            { id: 5, model: 'AMD MI300X', provider: 'Hot Aisle', price: 1.99, vram: 192, type: 'High-End' },
+            { id: 6, model: 'Nvidia H200', provider: 'FluidStack', price: 2.30, vram: 141, type: 'High-End' },
+            { id: 7, model: 'Nvidia B200', provider: 'DataCrunch', price: 3.99, vram: 180, type: 'High-End' },
+            { id: 8, model: 'Nvidia GB200', provider: 'CoreWeave', price: 42.00, vram: 744, type: 'High-End' },
+            { id: 9, model: 'Nvidia A100 80GB', provider: 'Salad', price: 0.40, vram: 80, type: 'High-End' },
+            { id: 10, model: 'Nvidia A100 80GB', provider: 'RunPod', price: 1.89, vram: 80, type: 'High-End' },
+            { id: 11, model: 'Nvidia L40S', provider: 'Salad', price: 0.32, vram: 48, type: 'High-End' },
+
+            // Mid-Range
+            { id: 20, model: 'Nvidia A4000', provider: 'Hyperstack', price: 0.15, vram: 16, type: 'Mid-Range' },
+            { id: 21, model: 'Nvidia RTX 5090', provider: 'GPUhub', price: 0.16, vram: 48, type: 'Mid-Range' },
+            { id: 22, model: 'Nvidia RTX 4090', provider: 'Salad', price: 0.18, vram: 24, type: 'Mid-Range' },
+            { id: 23, model: 'Nvidia RTX 4090', provider: 'RunPod', price: 0.74, vram: 24, type: 'Mid-Range' },
+            { id: 24, model: 'Nvidia RTX 3090', provider: 'Salad', price: 0.11, vram: 24, type: 'Mid-Range' },
+            { id: 25, model: 'Nvidia L4', provider: 'RunPod', price: 0.39, vram: 24, type: 'Mid-Range' },
+            { id: 26, model: 'Nvidia A40', provider: 'RunPod', price: 0.40, vram: 48, type: 'Mid-Range' },
+            { id: 27, model: 'Nvidia A5000', provider: 'Salad', price: 0.11, vram: 24, type: 'Mid-Range' },
+            { id: 28, model: 'Nvidia V100', provider: 'DataCrunch', price: 0.14, vram: 16, type: 'Mid-Range' },
+            { id: 29, model: 'Nvidia T4', provider: 'Thunder', price: 0.27, vram: 16, type: 'Mid-Range' },
+
+            // Budget
+            { id: 36, model: 'Nvidia GTX 1660', provider: 'Salad', price: 0.04, vram: 6, type: 'Budget' },
+            { id: 37, model: 'Nvidia GTX 1080 Ti', provider: 'Salad', price: 0.04, vram: 11, type: 'Budget' },
+            { id: 38, model: 'Nvidia RTX 2060', provider: 'Salad', price: 0.04, vram: 6, type: 'Budget' },
+            { id: 39, model: 'Nvidia RTX 3060', provider: 'Salad', price: 0.05, vram: 12, type: 'Budget' },
+            { id: 40, model: 'Nvidia RTX 4060', provider: 'Vast.ai', price: 0.06, vram: 8, type: 'Budget' },
+            { id: 41, model: 'Nvidia P4', provider: 'Vast.ai', price: 0.04, vram: 8, type: 'Budget' },
+        ];
+
+        // --- APP LOGIC ---
+        const app = {
+            state: {
+                view: 'dashboard',
+                basket: [], // Array of IDs
+                filters: { vram: 0, budget: 1000 },
+                calc: { gpuModel: gpuData[0].model, provider: gpuData[0].provider, qty: 1, hours: 8 }
+            },
+
+            charts: {},
+
+            init() {
+                this.loadState();
+                this.initCalculator();
+                this.renderGrid();
+                this.updateDrawer();
+                this.initScatterChart();
+                this.renderIcons();
+
+                // Global Event Listeners
+                document.getElementById('filter-vram').addEventListener('change', (e) => {
+                    this.state.filters.vram = parseInt(e.target.value);
+                    this.renderGrid();
+                });
+                document.getElementById('filter-budget').addEventListener('input', (e) => {
+                    this.state.filters.budget = parseFloat(e.target.value) || 1000;
+                    this.renderGrid();
+                });
+
+                // Persist state on unload
+                window.addEventListener('beforeunload', () => this.saveState());
+            },
+
+        loadState() {
+            const saved = localStorage.getItem('gpu_app_state');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    this.state.basket = parsed.basket || [];
+                    // We don't restore view, always start on dashboard
+                } catch (e) { console.error("State load fail", e); }
+            }
+        },
+
+        saveState() {
+            localStorage.setItem('gpu_app_state', JSON.stringify({
+                basket: this.state.basket
+            }));
+        },
+
+        renderIcons() {
+            lucide.createIcons();
+        },
+
+        // --- NAVIGATION ---
+        switchView(viewId) {
+            // Hide all
+            ['dashboard', 'explorer', 'intelligence'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                document.getElementById(`nav-${v}`).classList.remove('active');
+            });
+            // Show target
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`nav-${viewId}`).classList.add('active');
+
+            if (viewId === 'intelligence') {
+                setTimeout(() => this.updateScatterChart(), 100); // Resize fix
+            }
+        },
+
+        // --- CALCULATOR MODULE ---
+        initCalculator() {
+            const gpuSelect = document.getElementById('calc-gpu');
+            const provSelect = document.getElementById('calc-provider');
+            const qtyInput = document.getElementById('calc-qty');
+            const hoursInput = document.getElementById('calc-hours');
+
+            // Populate GPU Models
+            const models = [...new Set(gpuData.map(d => d.model))].sort();
+            gpuSelect.innerHTML = models.map(m => `<option>${m}</option>`).join('');
+
+            const updateProviders = () => {
+                const m = gpuSelect.value;
+                const provs = gpuData.filter(d => d.model === m).map(d => d.provider);
+                provSelect.innerHTML = provs.map(p => `<option>${p}</option>`).join('');
+                this.calcMetrics();
+            };
+
+            gpuSelect.addEventListener('change', updateProviders);
+            provSelect.addEventListener('change', () => this.calcMetrics());
+
+            qtyInput.addEventListener('input', (e) => {
+                document.getElementById('lbl-qty').innerText = `${e.target.value} Nodes`;
+                this.calcMetrics();
+            });
+
+            hoursInput.addEventListener('input', (e) => {
+                document.getElementById('lbl-hours').innerText = `${e.target.value} Hours`;
+                this.calcMetrics();
+            });
+        },
+
+        calcMetrics() {
+            const model = document.getElementById('calc-gpu').value;
+            const prov = document.getElementById('calc-provider').value;
+            const qty = parseInt(document.getElementById('calc-qty').value);
+            const hours = parseInt(document.getElementById('calc-hours').value);
+
+            const data = gpuData.find(d => d.model === model && d.provider === prov);
+            if (!data) return;
+
+            const hourly = data.price * qty;
+            const daily = hourly * hours;
+            const monthly = daily * 30;
+
+            // Update KPIs with animation effect
+            this.animateValue('kpi-rate', hourly);
+            this.animateValue('kpi-daily', daily);
+            this.animateValue('kpi-monthly', monthly);
+            document.getElementById('kpi-vram').innerText = `${data.vram * qty} GB`;
+
+            this.updateProjectionChart(daily);
+        },
+
+        animateValue(id, end, duration = 500) {
+            const obj = document.getElementById(id);
+            const start = parseFloat(obj.innerText.replace(/[^0-9.-]+/g, "")) || 0;
+            const range = end - start;
+            let startTime;
+
+            const step = (timestamp) => {
+                if (!startTime) startTime = timestamp;
+                const progress = Math.min((timestamp - startTime) / duration, 1);
+                obj.innerHTML = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(start + (range * progress));
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        },
+
+        updateProjectionChart(dailyCost) {
+            const ctx = document.getElementById('chart-projection').getContext('2d');
+            const labels = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
+            const dataPoints = labels.map((_, i) => dailyCost * (i + 1));
+
+            if (this.charts.projection) {
+                this.charts.projection.data.datasets[0].data = dataPoints;
+                this.charts.projection.update();
+            } else {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(0, 240, 255, 0.2)');
+                gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
+
+                this.charts.projection = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Cumulative Cost',
+                            data: dataPoints,
+                            borderColor: '#00F0FF',
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', callback: (v) => '$' + v } },
+                            x: { display: false }
+                        }
+                    }
+                });
+            }
+        },
+
+        initScatterChart() {
+            const ctx = document.getElementById('chart-scatter').getContext('2d');
+            this.charts.scatter = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'High-End',
+                            data: [],
+                            backgroundColor: '#00F0FF',
+                            pointRadius: 6,
+                            pointHoverRadius: 10
+                        },
+                        {
+                            label: 'Mid-Range',
+                            data: [],
+                            backgroundColor: '#7C3AED',
+                            pointRadius: 5,
+                            pointHoverRadius: 9
+                        },
+                        {
+                            label: 'Budget',
+                            data: [],
+                            backgroundColor: '#EC4899',
+                            pointRadius: 4,
+                            pointHoverRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const raw = ctx.raw;
+                                    return `${raw.model} (${raw.provider}): $${raw.y}/hr, ${raw.x}GB VRAM`;
+                                }
+                            }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'VRAM (GB)', color: '#64748b' },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Price ($/hr)', color: '#64748b' },
+                            type: 'logarithmic', // Log scale for massive price variance
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b', callback: (v) => '$' + v }
+                        }
+                    }
+                }
+            });
+            this.updateScatterChart();
+        },
+
+        updateScatterChart() {
+            if (!this.charts.scatter) return;
+
+            const mapData = (type) => gpuData
+                .filter(d => d.type === type)
+                .map(d => ({ x: d.vram, y: d.price, model: d.model, provider: d.provider }));
+
+            this.charts.scatter.data.datasets[0].data = mapData('High-End');
+            this.charts.scatter.data.datasets[1].data = mapData('Mid-Range');
+            this.charts.scatter.data.datasets[2].data = mapData('Budget');
+            this.charts.scatter.update();
+        },
+
+        renderGrid() {
+            const container = document.getElementById('gpu-grid');
+            const vramFilter = this.state.filters.vram;
+            const budgetFilter = this.state.filters.budget;
+
+            // Filter logic
+            const filtered = gpuData.filter(d => {
+                const matchesVram = d.vram >= vramFilter;
+                const matchesBudget = budgetFilter ? d.price <= budgetFilter : true;
+                return matchesVram && matchesBudget;
+            });
+
+            container.innerHTML = filtered.map(item => {
+                const isSelected = this.state.basket.includes(item.id);
+                const btnClass = isSelected
+                    ? "bg-brand-cyan text-black hover:bg-cyan-400"
+                    : "bg-white/5 text-slate-300 hover:bg-white/10";
+                const btnText = isSelected ? "Added" : "Compare";
+                const icon = isSelected ? "check" : "plus";
+
+                // Determine border color based on type
+                let borderClass = "border-white/5";
+                if (item.type === 'High-End') borderClass = "border-brand-cyan/20 hover:border-brand-cyan/50";
+                if (item.type === 'Mid-Range') borderClass = "border-brand-violet/20 hover:border-brand-violet/50";
+                if (item.type === 'Budget') borderClass = "border-brand-pink/20 hover:border-brand-pink/50";
+
+                return `
+                <div class="glass p-4 rounded-xl border ${borderClass} transition-all group relative">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-bold text-white group-hover:text-brand-cyan transition-colors">${item.model}</h4>
+                            <div class="text-xs text-slate-400 flex items-center gap-1">
+                                <i data-lucide="cloud" class="w-3 h-3"></i> ${item.provider}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-mono font-bold text-white">$${item.price.toFixed(2)}</div>
+                            <div class="text-[10px] text-slate-500">/hr</div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mb-4">
+                        <span class="px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5">${item.vram} GB VRAM</span>
+                        <span class="px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5">${item.type}</span>
+                    </div>
+
+                    <button onclick="app.toggleBasket(${item.id})"
+                        class="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2 ${btnClass}">
+                        <i data-lucide="${icon}" class="w-3 h-3"></i> ${btnText}
+                    </button>
+                </div>
+                `;
+            }).join('');
+
+            this.renderIcons();
+        },
+
+        toggleBasket(id) {
+            if (this.state.basket.includes(id)) {
+                this.state.basket = this.state.basket.filter(i => i !== id);
+            } else {
+                if (this.state.basket.length >= 5) {
+                    alert("You can only compare up to 5 GPUs at a time.");
+                    return;
+                }
+                this.state.basket.push(id);
+            }
+            this.updateDrawer();
+            this.renderGrid(); // Re-render buttons
+        },
+
+        clearBasket() {
+            this.state.basket = [];
+            this.updateDrawer();
+            this.renderGrid();
+        },
+
+        updateDrawer() {
+            const drawer = document.getElementById('drawer-compare');
+            const countEl = document.getElementById('basket-count');
+            const listEl = document.getElementById('basket-items');
+
+            countEl.innerText = this.state.basket.length;
+
+            if (this.state.basket.length > 0) {
+                drawer.classList.remove('translate-y-full');
+            } else {
+                drawer.classList.add('translate-y-full');
+            }
+
+            // Render small previews
+            const items = gpuData.filter(d => this.state.basket.includes(d.id));
+            listEl.innerHTML = items.map(i => `
+            <div class="flex-shrink-0 w-32 bg-white/5 border border-white/10 rounded p-2 relative">
+                    <button onclick="app.toggleBasket(${i.id})"
+                        class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"><i
+                            data-lucide="x" class="w-3 h-3"></i></button>
+                    <div class="text-xs font-bold text-white truncate">${i.model}</div>
+                    <div class="text-[10px] text-slate-400 truncate">${i.provider}</div>
+                </div >
+            `).join('');
+            this.renderIcons();
+        },
+
+        toggleCompareModal() {
+            const modal = document.getElementById('modal-compare');
+            modal.classList.toggle('hidden');
+
+            if (!modal.classList.contains('hidden')) {
+                this.renderComparisonCharts();
+            }
+        },
+
+        renderComparisonCharts() {
+            const items = gpuData.filter(d => this.state.basket.includes(d.id));
+            const labels = items.map(d => `${d.model} (${d.provider})`);
+
+            // Helper to create/update chart
+            const buildChart = (id, label, dataKey, color) => {
+                const ctx = document.getElementById(id).getContext('2d');
+                const chartData = items.map(d => d[dataKey]);
+
+                // Check if chart instance exists in a temp cache or destory logic
+                if (this.charts[id]) this.charts[id].destroy();
+
+                this.charts[id] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: label,
+                            data: chartData,
+                            backgroundColor: color,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                            y: { ticks: { color: '#94a3b8' } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            };
+
+            buildChart('chart-compare-price', 'Hourly Price ($)', 'price', '#00F0FF');
+            buildChart('chart-compare-vram', 'VRAM (GB)', 'vram', '#7C3AED');
+        }
+        };
+
+        // Init App
+        document.addEventListener('DOMContentLoaded', () => app.init());
+
+    </script>
+</body>
+
+</html>

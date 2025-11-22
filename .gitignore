@@ -1,0 +1,13 @@
+# Python scripts
+*.py
+
+# JavaScript helper scripts
+fix_gpuburn.js
+
+# Backup files
+*_backup*.html
+gpuburn_backup_corrupted.html
+
+# OS files
+.DS_Store
+Thumbs.db
