@@ -254,6 +254,43 @@
                         </div>
                     </div>
 
+                    <!-- Quick Launch Panel -->
+                    <div class="glass p-6 rounded-xl">
+                        <h3 class="text-white font-display font-bold mb-4 flex items-center gap-2">
+                            <i data-lucide="zap" class="w-4 h-4 text-brand-cyan"></i> Quick Launch
+                        </h3>
+                        <p class="text-sm text-slate-400 mb-4">Popular GPUs ready to deploy on Spheron</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button onclick="window.open('https://spheron.ai', '_blank')"
+                                class="bg-brand-cyan/10 hover:bg-brand-cyan/20 border border-brand-cyan/30 rounded-lg p-4 text-left transition-all group">
+                                <div class="text-xs text-brand-cyan font-medium mb-1">Nvidia H100</div>
+                                <div class="text-lg font-bold text-white">$1.99/hr</div>
+                                <div class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                                    Launch <i data-lucide="arrow-right"
+                                        class="w-3 h-3 group-hover:translate-x-1 transition-transform"></i>
+                                </div>
+                            </button>
+                            <button onclick="window.open('https://spheron.ai', '_blank')"
+                                class="bg-brand-violet/10 hover:bg-brand-violet/20 border border-brand-violet/30 rounded-lg p-4 text-left transition-all group">
+                                <div class="text-xs text-brand-violet font-medium mb-1">Nvidia A100</div>
+                                <div class="text-lg font-bold text-white">$1.50/hr</div>
+                                <div class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                                    Launch <i data-lucide="arrow-right"
+                                        class="w-3 h-3 group-hover:translate-x-1 transition-transform"></i>
+                                </div>
+                            </button>
+                            <button onclick="window.open('https://spheron.ai', '_blank')"
+                                class="bg-brand-pink/10 hover:bg-brand-pink/20 border border-brand-pink/30 rounded-lg p-4 text-left transition-all group">
+                                <div class="text-xs text-brand-pink font-medium mb-1">RTX 4090</div>
+                                <div class="text-lg font-bold text-white">$0.18/hr</div>
+                                <div class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                                    Launch <i data-lucide="arrow-right"
+                                        class="w-3 h-3 group-hover:translate-x-1 transition-transform"></i>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     <style>
                         /* Component Styles - Scoped to #spheron-savings-container to avoid conflicts */
                         #spheron-savings-container {
@@ -660,254 +697,254 @@
                 window.addEventListener('beforeunload', () => this.saveState());
             },
 
-        loadState() {
-            const saved = localStorage.getItem('gpu_app_state');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    this.state.basket = parsed.basket || [];
-                    // We don't restore view, always start on dashboard
-                } catch (e) { console.error("State load fail", e); }
-            }
-        },
+            loadState() {
+                const saved = localStorage.getItem('gpu_app_state');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        this.state.basket = parsed.basket || [];
+                        // We don't restore view, always start on dashboard
+                    } catch (e) { console.error("State load fail", e); }
+                }
+            },
 
-        saveState() {
-            localStorage.setItem('gpu_app_state', JSON.stringify({
-                basket: this.state.basket
-            }));
-        },
+            saveState() {
+                localStorage.setItem('gpu_app_state', JSON.stringify({
+                    basket: this.state.basket
+                }));
+            },
 
-        renderIcons() {
-            lucide.createIcons();
-        },
+            renderIcons() {
+                lucide.createIcons();
+            },
 
-        // --- NAVIGATION ---
-        switchView(viewId) {
-            // Hide all
-            ['dashboard', 'explorer', 'intelligence'].forEach(v => {
-                document.getElementById(`view-${v}`).classList.add('hidden');
-                document.getElementById(`nav-${v}`).classList.remove('active');
-            });
-            // Show target
-            document.getElementById(`view-${viewId}`).classList.remove('hidden');
-            document.getElementById(`nav-${viewId}`).classList.add('active');
+            // --- NAVIGATION ---
+            switchView(viewId) {
+                // Hide all
+                ['dashboard', 'explorer', 'intelligence'].forEach(v => {
+                    document.getElementById(`view-${v}`).classList.add('hidden');
+                    document.getElementById(`nav-${v}`).classList.remove('active');
+                });
+                // Show target
+                document.getElementById(`view-${viewId}`).classList.remove('hidden');
+                document.getElementById(`nav-${viewId}`).classList.add('active');
 
-            if (viewId === 'intelligence') {
-                setTimeout(() => this.updateScatterChart(), 100); // Resize fix
-            }
-        },
+                if (viewId === 'intelligence') {
+                    setTimeout(() => this.updateScatterChart(), 100); // Resize fix
+                }
+            },
 
-        // --- CALCULATOR MODULE ---
-        initCalculator() {
-            const gpuSelect = document.getElementById('calc-gpu');
-            const provSelect = document.getElementById('calc-provider');
-            const qtyInput = document.getElementById('calc-qty');
-            const hoursInput = document.getElementById('calc-hours');
+            // --- CALCULATOR MODULE ---
+            initCalculator() {
+                const gpuSelect = document.getElementById('calc-gpu');
+                const provSelect = document.getElementById('calc-provider');
+                const qtyInput = document.getElementById('calc-qty');
+                const hoursInput = document.getElementById('calc-hours');
 
-            // Populate GPU Models
-            const models = [...new Set(gpuData.map(d => d.model))].sort();
-            gpuSelect.innerHTML = models.map(m => `<option>${m}</option>`).join('');
+                // Populate GPU Models
+                const models = [...new Set(gpuData.map(d => d.model))].sort();
+                gpuSelect.innerHTML = models.map(m => `<option>${m}</option>`).join('');
 
-            const updateProviders = () => {
-                const m = gpuSelect.value;
-                const provs = gpuData.filter(d => d.model === m).map(d => d.provider);
-                provSelect.innerHTML = provs.map(p => `<option>${p}</option>`).join('');
-                this.calcMetrics();
-            };
+                const updateProviders = () => {
+                    const m = gpuSelect.value;
+                    const provs = gpuData.filter(d => d.model === m).map(d => d.provider);
+                    provSelect.innerHTML = provs.map(p => `<option>${p}</option>`).join('');
+                    this.calcMetrics();
+                };
 
-            gpuSelect.addEventListener('change', updateProviders);
-            provSelect.addEventListener('change', () => this.calcMetrics());
+                gpuSelect.addEventListener('change', updateProviders);
+                provSelect.addEventListener('change', () => this.calcMetrics());
 
-            qtyInput.addEventListener('input', (e) => {
-                document.getElementById('lbl-qty').innerText = `${e.target.value} Nodes`;
-                this.calcMetrics();
-            });
+                qtyInput.addEventListener('input', (e) => {
+                    document.getElementById('lbl-qty').innerText = `${e.target.value} Nodes`;
+                    this.calcMetrics();
+                });
 
-            hoursInput.addEventListener('input', (e) => {
-                document.getElementById('lbl-hours').innerText = `${e.target.value} Hours`;
-                this.calcMetrics();
-            });
-        },
+                hoursInput.addEventListener('input', (e) => {
+                    document.getElementById('lbl-hours').innerText = `${e.target.value} Hours`;
+                    this.calcMetrics();
+                });
+            },
 
-        calcMetrics() {
-            const model = document.getElementById('calc-gpu').value;
-            const prov = document.getElementById('calc-provider').value;
-            const qty = parseInt(document.getElementById('calc-qty').value);
-            const hours = parseInt(document.getElementById('calc-hours').value);
+            calcMetrics() {
+                const model = document.getElementById('calc-gpu').value;
+                const prov = document.getElementById('calc-provider').value;
+                const qty = parseInt(document.getElementById('calc-qty').value);
+                const hours = parseInt(document.getElementById('calc-hours').value);
 
-            const data = gpuData.find(d => d.model === model && d.provider === prov);
-            if (!data) return;
+                const data = gpuData.find(d => d.model === model && d.provider === prov);
+                if (!data) return;
 
-            const hourly = data.price * qty;
-            const daily = hourly * hours;
-            const monthly = daily * 30;
+                const hourly = data.price * qty;
+                const daily = hourly * hours;
+                const monthly = daily * 30;
 
-            // Update KPIs with animation effect
-            this.animateValue('kpi-rate', hourly);
-            this.animateValue('kpi-daily', daily);
-            this.animateValue('kpi-monthly', monthly);
-            document.getElementById('kpi-vram').innerText = `${data.vram * qty} GB`;
+                // Update KPIs with animation effect
+                this.animateValue('kpi-rate', hourly);
+                this.animateValue('kpi-daily', daily);
+                this.animateValue('kpi-monthly', monthly);
+                document.getElementById('kpi-vram').innerText = `${data.vram * qty} GB`;
 
-            this.updateProjectionChart(daily);
-        },
+                this.updateProjectionChart(daily);
+            },
 
-        animateValue(id, end, duration = 500) {
-            const obj = document.getElementById(id);
-            const start = parseFloat(obj.innerText.replace(/[^0-9.-]+/g, "")) || 0;
-            const range = end - start;
-            let startTime;
+            animateValue(id, end, duration = 500) {
+                const obj = document.getElementById(id);
+                const start = parseFloat(obj.innerText.replace(/[^0-9.-]+/g, "")) || 0;
+                const range = end - start;
+                let startTime;
 
-            const step = (timestamp) => {
-                if (!startTime) startTime = timestamp;
-                const progress = Math.min((timestamp - startTime) / duration, 1);
-                obj.innerHTML = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(start + (range * progress));
-                if (progress < 1) window.requestAnimationFrame(step);
-            };
-            window.requestAnimationFrame(step);
-        },
+                const step = (timestamp) => {
+                    if (!startTime) startTime = timestamp;
+                    const progress = Math.min((timestamp - startTime) / duration, 1);
+                    obj.innerHTML = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(start + (range * progress));
+                    if (progress < 1) window.requestAnimationFrame(step);
+                };
+                window.requestAnimationFrame(step);
+            },
 
-        updateProjectionChart(dailyCost) {
-            const ctx = document.getElementById('chart-projection').getContext('2d');
-            const labels = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
-            const dataPoints = labels.map((_, i) => dailyCost * (i + 1));
+            updateProjectionChart(dailyCost) {
+                const ctx = document.getElementById('chart-projection').getContext('2d');
+                const labels = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
+                const dataPoints = labels.map((_, i) => dailyCost * (i + 1));
 
-            if (this.charts.projection) {
-                this.charts.projection.data.datasets[0].data = dataPoints;
-                this.charts.projection.update();
-            } else {
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(0, 240, 255, 0.2)');
-                gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
+                if (this.charts.projection) {
+                    this.charts.projection.data.datasets[0].data = dataPoints;
+                    this.charts.projection.update();
+                } else {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(0, 240, 255, 0.2)');
+                    gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
 
-                this.charts.projection = new Chart(ctx, {
-                    type: 'line',
+                    this.charts.projection = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Cumulative Cost',
+                                data: dataPoints,
+                                borderColor: '#00F0FF',
+                                backgroundColor: gradient,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 0,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', callback: (v) => '$' + v } },
+                                x: { display: false }
+                            }
+                        }
+                    });
+                }
+            },
+
+            initScatterChart() {
+                const ctx = document.getElementById('chart-scatter').getContext('2d');
+                this.charts.scatter = new Chart(ctx, {
+                    type: 'scatter',
                     data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Cumulative Cost',
-                            data: dataPoints,
-                            borderColor: '#00F0FF',
-                            backgroundColor: gradient,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 6
-                        }]
+                        datasets: [
+                            {
+                                label: 'High-End',
+                                data: [],
+                                backgroundColor: '#00F0FF',
+                                pointRadius: 6,
+                                pointHoverRadius: 10
+                            },
+                            {
+                                label: 'Mid-Range',
+                                data: [],
+                                backgroundColor: '#7C3AED',
+                                pointRadius: 5,
+                                pointHoverRadius: 9
+                            },
+                            {
+                                label: 'Budget',
+                                data: [],
+                                backgroundColor: '#EC4899',
+                                pointRadius: 4,
+                                pointHoverRadius: 8
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => {
+                                        const raw = ctx.raw;
+                                        return `${raw.model} (${raw.provider}): $${raw.y}/hr, ${raw.x}GB VRAM`;
+                                    }
+                                }
+                            },
+                            legend: { display: false }
+                        },
                         scales: {
-                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', callback: (v) => '$' + v } },
-                            x: { display: false }
+                            x: {
+                                title: { display: true, text: 'VRAM (GB)', color: '#64748b' },
+                                grid: { color: '#1e293b' },
+                                ticks: { color: '#64748b' }
+                            },
+                            y: {
+                                title: { display: true, text: 'Price ($/hr)', color: '#64748b' },
+                                type: 'logarithmic', // Log scale for massive price variance
+                                grid: { color: '#1e293b' },
+                                ticks: { color: '#64748b', callback: (v) => '$' + v }
+                            }
                         }
                     }
                 });
-            }
-        },
+                this.updateScatterChart();
+            },
 
-        initScatterChart() {
-            const ctx = document.getElementById('chart-scatter').getContext('2d');
-            this.charts.scatter = new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        {
-                            label: 'High-End',
-                            data: [],
-                            backgroundColor: '#00F0FF',
-                            pointRadius: 6,
-                            pointHoverRadius: 10
-                        },
-                        {
-                            label: 'Mid-Range',
-                            data: [],
-                            backgroundColor: '#7C3AED',
-                            pointRadius: 5,
-                            pointHoverRadius: 9
-                        },
-                        {
-                            label: 'Budget',
-                            data: [],
-                            backgroundColor: '#EC4899',
-                            pointRadius: 4,
-                            pointHoverRadius: 8
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const raw = ctx.raw;
-                                    return `${raw.model} (${raw.provider}): $${raw.y}/hr, ${raw.x}GB VRAM`;
-                                }
-                            }
-                        },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            title: { display: true, text: 'VRAM (GB)', color: '#64748b' },
-                            grid: { color: '#1e293b' },
-                            ticks: { color: '#64748b' }
-                        },
-                        y: {
-                            title: { display: true, text: 'Price ($/hr)', color: '#64748b' },
-                            type: 'logarithmic', // Log scale for massive price variance
-                            grid: { color: '#1e293b' },
-                            ticks: { color: '#64748b', callback: (v) => '$' + v }
-                        }
-                    }
-                }
-            });
-            this.updateScatterChart();
-        },
+            updateScatterChart() {
+                if (!this.charts.scatter) return;
 
-        updateScatterChart() {
-            if (!this.charts.scatter) return;
+                const mapData = (type) => gpuData
+                    .filter(d => d.type === type)
+                    .map(d => ({ x: d.vram, y: d.price, model: d.model, provider: d.provider }));
 
-            const mapData = (type) => gpuData
-                .filter(d => d.type === type)
-                .map(d => ({ x: d.vram, y: d.price, model: d.model, provider: d.provider }));
+                this.charts.scatter.data.datasets[0].data = mapData('High-End');
+                this.charts.scatter.data.datasets[1].data = mapData('Mid-Range');
+                this.charts.scatter.data.datasets[2].data = mapData('Budget');
+                this.charts.scatter.update();
+            },
 
-            this.charts.scatter.data.datasets[0].data = mapData('High-End');
-            this.charts.scatter.data.datasets[1].data = mapData('Mid-Range');
-            this.charts.scatter.data.datasets[2].data = mapData('Budget');
-            this.charts.scatter.update();
-        },
+            renderGrid() {
+                const container = document.getElementById('gpu-grid');
+                const vramFilter = this.state.filters.vram;
+                const budgetFilter = this.state.filters.budget;
 
-        renderGrid() {
-            const container = document.getElementById('gpu-grid');
-            const vramFilter = this.state.filters.vram;
-            const budgetFilter = this.state.filters.budget;
+                // Filter logic
+                const filtered = gpuData.filter(d => {
+                    const matchesVram = d.vram >= vramFilter;
+                    const matchesBudget = budgetFilter ? d.price <= budgetFilter : true;
+                    return matchesVram && matchesBudget;
+                });
 
-            // Filter logic
-            const filtered = gpuData.filter(d => {
-                const matchesVram = d.vram >= vramFilter;
-                const matchesBudget = budgetFilter ? d.price <= budgetFilter : true;
-                return matchesVram && matchesBudget;
-            });
+                container.innerHTML = filtered.map(item => {
+                    const isSelected = this.state.basket.includes(item.id);
+                    const btnClass = isSelected
+                        ? "bg-brand-cyan text-black hover:bg-cyan-400"
+                        : "bg-white/5 text-slate-300 hover:bg-white/10";
+                    const btnText = isSelected ? "Added" : "Compare";
+                    const icon = isSelected ? "check" : "plus";
 
-            container.innerHTML = filtered.map(item => {
-                const isSelected = this.state.basket.includes(item.id);
-                const btnClass = isSelected
-                    ? "bg-brand-cyan text-black hover:bg-cyan-400"
-                    : "bg-white/5 text-slate-300 hover:bg-white/10";
-                const btnText = isSelected ? "Added" : "Compare";
-                const icon = isSelected ? "check" : "plus";
+                    // Determine border color based on type
+                    let borderClass = "border-white/5";
+                    if (item.type === 'High-End') borderClass = "border-brand-cyan/20 hover:border-brand-cyan/50";
+                    if (item.type === 'Mid-Range') borderClass = "border-brand-violet/20 hover:border-brand-violet/50";
+                    if (item.type === 'Budget') borderClass = "border-brand-pink/20 hover:border-brand-pink/50";
 
-                // Determine border color based on type
-                let borderClass = "border-white/5";
-                if (item.type === 'High-End') borderClass = "border-brand-cyan/20 hover:border-brand-cyan/50";
-                if (item.type === 'Mid-Range') borderClass = "border-brand-violet/20 hover:border-brand-violet/50";
-                if (item.type === 'Budget') borderClass = "border-brand-pink/20 hover:border-brand-pink/50";
-
-                return `
+                    return `
                 <div class="glass p-4 rounded-xl border ${borderClass} transition-all group relative">
                     <div class="flex justify-between items-start mb-3">
                         <div>
@@ -933,47 +970,47 @@
                     </button>
                 </div>
                 `;
-            }).join('');
+                }).join('');
 
-            this.renderIcons();
-        },
+                this.renderIcons();
+            },
 
-        toggleBasket(id) {
-            if (this.state.basket.includes(id)) {
-                this.state.basket = this.state.basket.filter(i => i !== id);
-            } else {
-                if (this.state.basket.length >= 5) {
-                    alert("You can only compare up to 5 GPUs at a time.");
-                    return;
+            toggleBasket(id) {
+                if (this.state.basket.includes(id)) {
+                    this.state.basket = this.state.basket.filter(i => i !== id);
+                } else {
+                    if (this.state.basket.length >= 5) {
+                        alert("You can only compare up to 5 GPUs at a time.");
+                        return;
+                    }
+                    this.state.basket.push(id);
                 }
-                this.state.basket.push(id);
-            }
-            this.updateDrawer();
-            this.renderGrid(); // Re-render buttons
-        },
+                this.updateDrawer();
+                this.renderGrid(); // Re-render buttons
+            },
 
-        clearBasket() {
-            this.state.basket = [];
-            this.updateDrawer();
-            this.renderGrid();
-        },
+            clearBasket() {
+                this.state.basket = [];
+                this.updateDrawer();
+                this.renderGrid();
+            },
 
-        updateDrawer() {
-            const drawer = document.getElementById('drawer-compare');
-            const countEl = document.getElementById('basket-count');
-            const listEl = document.getElementById('basket-items');
+            updateDrawer() {
+                const drawer = document.getElementById('drawer-compare');
+                const countEl = document.getElementById('basket-count');
+                const listEl = document.getElementById('basket-items');
 
-            countEl.innerText = this.state.basket.length;
+                countEl.innerText = this.state.basket.length;
 
-            if (this.state.basket.length > 0) {
-                drawer.classList.remove('translate-y-full');
-            } else {
-                drawer.classList.add('translate-y-full');
-            }
+                if (this.state.basket.length > 0) {
+                    drawer.classList.remove('translate-y-full');
+                } else {
+                    drawer.classList.add('translate-y-full');
+                }
 
-            // Render small previews
-            const items = gpuData.filter(d => this.state.basket.includes(d.id));
-            listEl.innerHTML = items.map(i => `
+                // Render small previews
+                const items = gpuData.filter(d => this.state.basket.includes(d.id));
+                listEl.innerHTML = items.map(i => `
             <div class="flex-shrink-0 w-32 bg-white/5 border border-white/10 rounded p-2 relative">
                     <button onclick="app.toggleBasket(${i.id})"
                         class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"><i
@@ -982,57 +1019,57 @@
                     <div class="text-[10px] text-slate-400 truncate">${i.provider}</div>
                 </div >
             `).join('');
-            this.renderIcons();
-        },
+                this.renderIcons();
+            },
 
-        toggleCompareModal() {
-            const modal = document.getElementById('modal-compare');
-            modal.classList.toggle('hidden');
+            toggleCompareModal() {
+                const modal = document.getElementById('modal-compare');
+                modal.classList.toggle('hidden');
 
-            if (!modal.classList.contains('hidden')) {
-                this.renderComparisonCharts();
-            }
-        },
+                if (!modal.classList.contains('hidden')) {
+                    this.renderComparisonCharts();
+                }
+            },
 
-        renderComparisonCharts() {
-            const items = gpuData.filter(d => this.state.basket.includes(d.id));
-            const labels = items.map(d => `${d.model} (${d.provider})`);
+            renderComparisonCharts() {
+                const items = gpuData.filter(d => this.state.basket.includes(d.id));
+                const labels = items.map(d => `${d.model} (${d.provider})`);
 
-            // Helper to create/update chart
-            const buildChart = (id, label, dataKey, color) => {
-                const ctx = document.getElementById(id).getContext('2d');
-                const chartData = items.map(d => d[dataKey]);
+                // Helper to create/update chart
+                const buildChart = (id, label, dataKey, color) => {
+                    const ctx = document.getElementById(id).getContext('2d');
+                    const chartData = items.map(d => d[dataKey]);
 
-                // Check if chart instance exists in a temp cache or destory logic
-                if (this.charts[id]) this.charts[id].destroy();
+                    // Check if chart instance exists in a temp cache or destory logic
+                    if (this.charts[id]) this.charts[id].destroy();
 
-                this.charts[id] = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: label,
-                            data: chartData,
-                            backgroundColor: color,
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        scales: {
-                            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
-                            y: { ticks: { color: '#94a3b8' } }
+                    this.charts[id] = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: label,
+                                data: chartData,
+                                backgroundColor: color,
+                                borderRadius: 4
+                            }]
                         },
-                        plugins: { legend: { display: false } }
-                    }
-                });
-            };
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            indexAxis: 'y',
+                            scales: {
+                                x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                                y: { ticks: { color: '#94a3b8' } }
+                            },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                };
 
-            buildChart('chart-compare-price', 'Hourly Price ($)', 'price', '#00F0FF');
-            buildChart('chart-compare-vram', 'VRAM (GB)', 'vram', '#7C3AED');
-        }
+                buildChart('chart-compare-price', 'Hourly Price ($)', 'price', '#00F0FF');
+                buildChart('chart-compare-vram', 'VRAM (GB)', 'vram', '#7C3AED');
+            }
         };
 
         // Init App
